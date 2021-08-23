@@ -5,7 +5,9 @@ all: .make/installed .make/compiled
 .make/installed:
 	arduino-cli core install arduino:mbed_nano
 	arduino-cli lib install --git-url https://github.com/chmanie/Control_Surface
-	arduino-cli lib install BLE-MIDI
+	arduino-cli lib install \
+		BLE-MIDI \
+		Arduino_LSM9DS1
 	touch .make/installed
 
 # Because arduino-cli puts the build artifacts god knows where

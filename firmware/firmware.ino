@@ -1,25 +1,28 @@
+#include <Arduino_LSM9DS1.h>
 #include <BLEMIDI_Transport.h>
 #include <hardware/BLEMIDI_ArduinoBLE.h>
-#include <Control_Surface.h>
-#include <MIDI_Interfaces/Wrappers/FortySevenEffects.hpp>
 
 BLEMIDI_CREATE_INSTANCE("GLOVE", MIDI)
 
 unsigned long t0 = millis();
+unsigned long t1 = millis();
 bool isConnected = false;
 int fingers[5] = {0, 0, 0, 0, 0};
-
-FortySevenEffectsMIDI_Interface<decltype(MIDI) &> BLEMIDI_interface = MIDI;
+float x = 0;
+float y = 0;
+float z = 0;
 
 // -----------------------------------------------------------------------------
-// When BLE connected, LED will turn on (indication that connection was successful)
-// When receiving a NoteOn, LED will go out, on NoteOff, light comes back on.
-// This is an easy and conveniant way to show that the connection is alive and working. 
+// When BLE connected, LED will turn on (indication that connection was
+// successful) When receiving a NoteOn, LED will go out, on NoteOff, light comes
+// back on. This is an easy and conveniant way to show that the connection is
+// alive and working.
 // -----------------------------------------------------------------------------
-void setup()
-{
+void setup() {
   MIDI.begin();
   Serial.begin(115200);
+
+  IMU.begin();
 
   pinMode(A0, INPUT);
   pinMode(A1, INPUT);
@@ -48,15 +51,13 @@ void setup()
   });
 }
 
-void loop()
-{
+void loop() {
   MIDI.read();
 
-  if (isConnected && (millis() - t0) > 1000)
-  {
+  if (isConnected && (millis() - t0) > 1000) {
     t0 = millis();
 
-    MIDI.sendNoteOn (60, 100, 1); // note 60, velocity 100 on channel 1
+    MIDI.sendNoteOn(60, 100, 1); // note 60, velocity 100 on channel 1
 
     fingers[0] = analogRead(A0); // thumb
     fingers[1] = analogRead(A1); // index finger
@@ -79,7 +80,7 @@ void loop()
     fingers[4] = map(fingers[4], 2840, 4000, 0, 127);
     fingers[4] = constrain(fingers[4], 0, 127); */
 
-    Serial.print("thumb: ");
+    /* Serial.print("thumb: ");
     Serial.println(fingers[0]);
 
     Serial.print("index finger: ");
@@ -92,12 +93,14 @@ void loop()
     Serial.println(fingers[3]);
 
     Serial.print("little finger: ");
-    Serial.println(fingers[4]);
+    Serial.println(fingers[4]); */
+  }
+
+  if (IMU.accelerationAvailable() && millis() - t1 > 10) {
+    t1 = millis();
+
+    /* IMU.readAcceleration(x, y, z); */
+    IMU.readGyroscope(x, y, z);
+    Serial.println(z);
   }
 }
-
-
-
-
-
-
