@@ -4,6 +4,7 @@ all: .make/installed .make/compiled
 
 .make/installed:
 	arduino-cli core install arduino:mbed_nano
+	arduino-cli lib install --git-url https://github.com/chmanie/Control_Surface
 	arduino-cli lib install BLE-MIDI
 	touch .make/installed
 

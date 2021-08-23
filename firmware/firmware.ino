@@ -1,11 +1,15 @@
 #include <BLEMIDI_Transport.h>
 #include <hardware/BLEMIDI_ArduinoBLE.h>
+#include <Control_Surface.h>
+#include <MIDI_Interfaces/Wrappers/FortySevenEffects.hpp>
 
 BLEMIDI_CREATE_INSTANCE("GLOVE", MIDI)
 
 unsigned long t0 = millis();
 bool isConnected = false;
 int fingers[5] = {0, 0, 0, 0, 0};
+
+FortySevenEffectsMIDI_Interface<decltype(MIDI) &> BLEMIDI_interface = MIDI;
 
 // -----------------------------------------------------------------------------
 // When BLE connected, LED will turn on (indication that connection was successful)
