@@ -4,10 +4,10 @@ all: .make/installed .make/compiled
 
 .make/installed:
 	arduino-cli core install arduino:mbed_nano
-	arduino-cli lib install --git-url https://github.com/chmanie/Control_Surface
 	arduino-cli lib install \
 		BLE-MIDI \
-		Arduino_LSM9DS1
+		Arduino_LSM9DS1 \
+		SensorFusion
 	touch .make/installed
 
 # Because arduino-cli puts the build artifacts god knows where
@@ -20,4 +20,4 @@ clean:
 	rm .make/installed .make/compiled
 
 upload: .make/compiled
-	arduino-cli upload --port /dev/cu.usbmodem144201 --fqbn arduino:mbed_nano:nano33ble .
+	arduino-cli upload --port /dev/cu.usbmodem143201 --fqbn arduino:mbed_nano:nano33ble .

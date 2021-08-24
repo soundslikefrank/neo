@@ -1,106 +1,154 @@
-#include <Arduino_LSM9DS1.h>
-#include <BLEMIDI_Transport.h>
-#include <hardware/BLEMIDI_ArduinoBLE.h>
+#include "SensorFusion.h"
+#include <SPI.h>
+#include <SparkFunLSM9DS1.h>
+#include <Wire.h>
 
-BLEMIDI_CREATE_INSTANCE("GLOVE", MIDI)
+#define GRAVITY 9.81
+#define PRINT_INTERVAL 12
+unsigned long lastPrint = 0; // Keep track of print time
 
-unsigned long t0 = millis();
-unsigned long t1 = millis();
-bool isConnected = false;
-int fingers[5] = {0, 0, 0, 0, 0};
-float x = 0;
-float y = 0;
-float z = 0;
+LSM9DS1 imu;
+SF filter;
 
-// -----------------------------------------------------------------------------
-// When BLE connected, LED will turn on (indication that connection was
-// successful) When receiving a NoteOn, LED will go out, on NoteOff, light comes
-// back on. This is an easy and conveniant way to show that the connection is
-// alive and working.
-// -----------------------------------------------------------------------------
+float Axyz[3], Mxyz[3], Gxyz[3];
+float pitch, roll, yaw;
+float deltat;
+
 void setup() {
-  MIDI.begin();
-  Serial.begin(115200);
-
-  IMU.begin();
-
-  pinMode(A0, INPUT);
-  pinMode(A1, INPUT);
-  pinMode(A2, INPUT);
-  pinMode(A3, INPUT);
-  pinMode(A4, INPUT);
   pinMode(LED_BUILTIN, OUTPUT);
+  Serial.begin(115200);
+  while (!Serial) {
+  }
 
-  digitalWrite(LED_BUILTIN, LOW);
-
-  BLEMIDI.setHandleConnected([]() {
-    isConnected = true;
+  Wire1.begin();
+  delay(100);
+  if (imu.begin(0x6B, 0x1E, Wire1) == false) {
+    while (1) {
+      digitalWrite(LED_BUILTIN, HIGH);
+      delay(10);
+      digitalWrite(LED_BUILTIN, LOW);
+      delay(20);
+    }
+  }
+  for (int i = 0; i < 5; i++) {
     digitalWrite(LED_BUILTIN, HIGH);
-  });
-
-  BLEMIDI.setHandleDisconnected([]() {
-    isConnected = false;
+    delay(100);
     digitalWrite(LED_BUILTIN, LOW);
-  });
-
-  MIDI.setHandleNoteOn([](byte channel, byte note, byte velocity) {
-    digitalWrite(LED_BUILTIN, LOW);
-  });
-  MIDI.setHandleNoteOff([](byte channel, byte note, byte velocity) {
-    digitalWrite(LED_BUILTIN, HIGH);
-  });
+    delay(50);
+  }
 }
 
 void loop() {
-  MIDI.read();
+  if (imu.accelAvailable() && imu.magAvailable() && imu.gyroAvailable()) {
+    imu.readAccel();
+    imu.readMag();
+    imu.readGyro();
 
-  if (isConnected && (millis() - t0) > 1000) {
-    t0 = millis();
+    get_IMU(Axyz, Mxyz);
+    Gxyz[0] = imu.calcGyro(imu.gx) * DEG_TO_RAD;
+    Gxyz[1] = imu.calcGyro(imu.gy) * DEG_TO_RAD;
+    Gxyz[2] = imu.calcGyro(imu.gz) * DEG_TO_RAD;
 
-    MIDI.sendNoteOn(60, 100, 1); // note 60, velocity 100 on channel 1
+    Axyz[0] = imu.calcAccel(Axyz[0]) * GRAVITY;
+    Axyz[1] = imu.calcAccel(Axyz[1]) * GRAVITY;
+    Axyz[2] = imu.calcAccel(Axyz[2]) * GRAVITY;
 
-    fingers[0] = analogRead(A0); // thumb
-    fingers[1] = analogRead(A1); // index finger
-    fingers[2] = analogRead(A2); // middle finger
-    fingers[3] = analogRead(A3); // ring finger
-    fingers[4] = analogRead(A4); // little finger
+    Mxyz[0] = imu.calcMag(Mxyz[0]);
+    Mxyz[1] = imu.calcMag(Mxyz[1]);
+    Mxyz[2] = imu.calcMag(Mxyz[2]);
 
-    /* fingers[0] = map(fingers[0], 2840, 4000, 0, 127);
-    fingers[0] = constrain(fingers[0], 0, 127);
+    deltat = filter.deltatUpdate();
+    filter.MadgwickUpdate(-Gxyz[0], Gxyz[1], Gxyz[2], // Flip Gyro Handedness
+                          -Axyz[0], Axyz[1], Axyz[2], // Flip Accel Handedness
+                          Mxyz[0], Mxyz[1], Mxyz[2], deltat);
 
-    fingers[1] = map(fingers[1], 2840, 4000, 0, 127);
-    fingers[1] = constrain(fingers[1], 0, 127);
+    if (millis() - lastPrint >= PRINT_INTERVAL) {
+      lastPrint = millis();
+      /*
+      Serial.print("A: ");
+      Serial.print(-Axyz[0]);
+      Serial.print(", ");
+      Serial.print(Axyz[1]);
+      Serial.print(", ");
+      Serial.println(Axyz[2]);
 
-    fingers[2] = map(fingers[2], 2840, 4000, 0, 127);
-    fingers[2] = constrain(fingers[2], 0, 127);
+      Serial.print("G: ");
+      Serial.print(-Gxyz[0]);
+      Serial.print(", ");
+      Serial.print(Gxyz[1]);
+      Serial.print(", ");
+      Serial.println(Gxyz[2]);
 
-    fingers[3] = map(fingers[3], 2840, 4000, 0, 127);
-    fingers[3] = constrain(fingers[3], 0, 127);
+      Serial.print("M: ");
+      Serial.print(Mxyz[0]);
+      Serial.print(", ");
+      Serial.print(Mxyz[1]);
+      Serial.print(", ");
+      Serial.println(Mxyz[2]);
+      */
 
-    fingers[4] = map(fingers[4], 2840, 4000, 0, 127);
-    fingers[4] = constrain(fingers[4], 0, 127); */
+      /* Serial.println("Orientation: "); */
+      Serial.println(filter.getYaw());
+      /* Serial.print(", ");
+      Serial.print(filter.getPitch());
+      Serial.print(", ");
+      Serial.println(filter.getRoll()); */
 
-    /* Serial.print("thumb: ");
-    Serial.println(fingers[0]);
-
-    Serial.print("index finger: ");
-    Serial.println(fingers[1]);
-
-    Serial.print("middle finger: ");
-    Serial.println(fingers[2]);
-
-    Serial.print("ring finger: ");
-    Serial.println(fingers[3]);
-
-    Serial.print("little finger: ");
-    Serial.println(fingers[4]); */
+      /* float *q;
+      q = filter.getQuat();
+      Serial.print("Quaternion: ");
+      Serial.print(q[0], 4);
+      Serial.print(", ");
+      Serial.print(q[1], 4);
+      Serial.print(", ");
+      Serial.print(q[2], 4);
+      Serial.print(", ");
+      Serial.println(q[3], 4); */
+    }
   }
+}
 
-  if (IMU.accelerationAvailable() && millis() - t1 > 10) {
-    t1 = millis();
+// Accel scale 16457.0 to normalize
+float A_B[3]{-654.19, 161.87, -597.01};
 
-    /* IMU.readAcceleration(x, y, z); */
-    IMU.readGyroscope(x, y, z);
-    Serial.println(z);
-  }
+float A_Ainv[3][3]{{1.00475, -0.03135, -0.00073},
+                   {-0.03135, 1.00864, 0.00819},
+                   {-0.00073, 0.00819, 0.99144}};
+
+// Mag scale 3746.0 to normalize
+float M_B[3]{1326.39, 1526.05, 1503.85};
+
+float M_Ainv[3][3]{{1.16966, 0.03568, -0.00257},
+                   {0.03568, 1.19523, -0.02172},
+                   {-0.00257, -0.02172, 1.15745}};
+
+void get_IMU(float Axyz[3], float Mxyz[3]) {
+  byte i;
+  float temp[3];
+  Axyz[0] = imu.ax;
+  Axyz[1] = imu.ay;
+  Axyz[2] = imu.az;
+  Mxyz[0] = imu.mx;
+  Mxyz[1] = imu.my;
+  Mxyz[2] = imu.mz;
+
+  // apply offsets (bias) and scale factors from Magneto
+  for (i = 0; i < 3; i++)
+    temp[i] = (Axyz[i] - A_B[i]);
+  Axyz[0] =
+      A_Ainv[0][0] * temp[0] + A_Ainv[0][1] * temp[1] + A_Ainv[0][2] * temp[2];
+  Axyz[1] =
+      A_Ainv[1][0] * temp[0] + A_Ainv[1][1] * temp[1] + A_Ainv[1][2] * temp[2];
+  Axyz[2] =
+      A_Ainv[2][0] * temp[0] + A_Ainv[2][1] * temp[1] + A_Ainv[2][2] * temp[2];
+
+  // apply offsets (bias) and scale factors from Magneto
+  for (i = 0; i < 3; i++)
+    temp[i] = (Mxyz[i] - M_B[i]);
+  Mxyz[0] =
+      M_Ainv[0][0] * temp[0] + M_Ainv[0][1] * temp[1] + M_Ainv[0][2] * temp[2];
+  Mxyz[1] =
+      M_Ainv[1][0] * temp[0] + M_Ainv[1][1] * temp[1] + M_Ainv[1][2] * temp[2];
+  Mxyz[2] =
+      M_Ainv[2][0] * temp[0] + M_Ainv[2][1] * temp[1] + M_Ainv[2][2] * temp[2];
 }
