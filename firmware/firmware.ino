@@ -1,10 +1,11 @@
 #include "SensorFusion.h"
 #include <SPI.h>
+#include <math.h>
 #include <SparkFunLSM9DS1.h>
 #include <Wire.h>
 
 #define GRAVITY 9.81
-#define PRINT_INTERVAL 12
+#define PRINT_INTERVAL 100
 unsigned long lastPrint = 0; // Keep track of print time
 
 LSM9DS1 imu;
@@ -13,6 +14,8 @@ SF filter;
 float Axyz[3], Mxyz[3], Gxyz[3];
 float pitch, roll, yaw;
 float deltat;
+
+float compX, compY, compZ;
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -64,6 +67,22 @@ void loop() {
 
     if (millis() - lastPrint >= PRINT_INTERVAL) {
       lastPrint = millis();
+
+      // pitch in radians
+      pitch = filter.getPitch() * M_PI / 180;
+      // roll in radians
+      roll = filter.getRoll() * M_PI / 180;
+      // compensated for gravity
+      compX = GRAVITY * sin(pitch);
+      compY = GRAVITY * sin(roll) * cos(pitch);
+      compZ = GRAVITY * cos(pitch) * cos(roll);
+
+      Serial.print(-Axyz[0] + compX);
+      Serial.print(", ");
+      Serial.print(Axyz[1] - compY);
+      Serial.print(", ");
+      Serial.println(Axyz[2] - compZ);
+
       /*
       Serial.print("A: ");
       Serial.print(-Axyz[0]);
@@ -88,7 +107,7 @@ void loop() {
       */
 
       /* Serial.println("Orientation: "); */
-      Serial.println(filter.getYaw());
+      /* Serial.println(filter.getYaw()); */
       /* Serial.print(", ");
       Serial.print(filter.getPitch());
       Serial.print(", ");
