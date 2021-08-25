@@ -1,3 +1,4 @@
 .make/installed
 .make/compiled
+.make/uploaded
 build

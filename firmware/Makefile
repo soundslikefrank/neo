@@ -1,4 +1,4 @@
-.PHONY: clean upload
+.PHONY: clean upload connect
 
 all: .make/installed .make/compiled
 
@@ -15,9 +15,16 @@ all: .make/installed .make/compiled
 	arduino-cli compile --fqbn arduino:mbed_nano:nano33ble .
 	touch .make/compiled
 
+.make/uploaded: .make/compiled
+	arduino-cli upload --port $$(ls /dev/tty.usbmodem*) --fqbn arduino:mbed_nano:nano33ble .
+	touch .make/uploaded
+
 clean:
 	arduino-cli cache clean
-	rm .make/installed .make/compiled
+	rm .make/installed .make/compiled .make/uploaded
 
-upload: .make/compiled
-	arduino-cli upload --port /dev/cu.usbmodem143201 --fqbn arduino:mbed_nano:nano33ble .
+upload:
+	arduino-cli upload --port $$(ls /dev/tty.usbmodem*) --fqbn arduino:mbed_nano:nano33ble .
+
+connect: .make/uploaded
+	tio -b 115200 $$(ls /dev/tty.usbmodem*)
