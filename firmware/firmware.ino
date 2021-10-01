@@ -1,21 +1,47 @@
-#include "SensorFusion.h"
 #include <SPI.h>
-#include <math.h>
+#include <SensorFusion.h>
 #include <SparkFunLSM9DS1.h>
 #include <Wire.h>
+#include <math.h>
 
 #define GRAVITY 9.81
 #define PRINT_INTERVAL 100
 unsigned long lastPrint = 0; // Keep track of print time
+unsigned long motionStart = 0;
+unsigned long elapsed = 0;
+unsigned long wait = 0;
 
 LSM9DS1 imu;
-SF filter;
+SF ahrs;
 
 float Axyz[3], Mxyz[3], Gxyz[3];
 float pitch, roll, yaw;
 float deltat;
 
-float compX, compY, compZ;
+float aX, aY, aZ;
+float velX, velY, velZ;
+float dX, dY, dZ;
+
+float a = 0;
+/* float vel = 0;
+float dist = 0; */
+
+// High pass butterworth filter order=1 alpha1=0.01
+class FilterBuHp1 {
+public:
+  FilterBuHp1() { v[0] = v[1] = 0.0; }
+
+private:
+  float v[2];
+
+public:
+  float step(float x) // class II
+  {
+    v[0] = v[1];
+    v[1] = (9.695312529087461995e-1 * x) + (0.93906250581749239892 * v[0]);
+    return (v[1] - v[0]);
+  }
+};
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -60,28 +86,68 @@ void loop() {
     Mxyz[1] = imu.calcMag(Mxyz[1]);
     Mxyz[2] = imu.calcMag(Mxyz[2]);
 
-    deltat = filter.deltatUpdate();
-    filter.MadgwickUpdate(-Gxyz[0], Gxyz[1], Gxyz[2], // Flip Gyro Handedness
-                          -Axyz[0], Axyz[1], Axyz[2], // Flip Accel Handedness
-                          Mxyz[0], Mxyz[1], Mxyz[2], deltat);
+    deltat = ahrs.deltatUpdate();
+    ahrs.MadgwickUpdate(-Gxyz[0], Gxyz[1], Gxyz[2], // Flip Gyro Handedness
+                        -Axyz[0], Axyz[1], Axyz[2], // Flip Accel Handedness
+                        Mxyz[0], Mxyz[1], Mxyz[2], deltat);
+
+    // pitch in radians
+    pitch = ahrs.getPitch() * M_PI / 180;
+    // roll in radians
+    roll = ahrs.getRoll() * M_PI / 180;
+    // compensated for gravity
+    aX = -Axyz[0] + GRAVITY * sin(pitch);
+    aY = Axyz[1] - GRAVITY * sin(roll) * cos(pitch);
+    aZ = Axyz[2] - GRAVITY * cos(pitch) * cos(roll);
+
+    // absolute value of acceleration
+    a = sqrt(aX * aX + aY * aY + aZ * aZ);
+
+    if (millis() - wait > 1000 && a > 4 && !motionStart) {
+      motionStart = millis();
+      wait = 0;
+      velX = 0;
+      velY = 0;
+      velZ = 0;
+      dX = 0;
+      dY = 0;
+      dZ = 0;
+      Serial.println("START");
+    }
+
+    if (motionStart) {
+      // integrate
+      velX = velX + aX;
+      velY = velY + aY;
+      velZ = velZ + aZ;
+
+      dX = dX + velX;
+      dY = dY + velY;
+      dZ = dZ + velZ;
+
+      elapsed = millis() - motionStart;
+      Serial.println(dX);
+    }
+
+    if (elapsed > 300 && a > 4) {
+      motionStart = 0;
+      elapsed = 0;
+      wait = millis();
+      Serial.println("STOP");
+    }
+
+    /* vel = sqrt(velX*velX + velY*velY + velZ*velZ); */
 
     if (millis() - lastPrint >= PRINT_INTERVAL) {
       lastPrint = millis();
 
-      // pitch in radians
-      pitch = filter.getPitch() * M_PI / 180;
-      // roll in radians
-      roll = filter.getRoll() * M_PI / 180;
-      // compensated for gravity
-      compX = GRAVITY * sin(pitch);
-      compY = GRAVITY * sin(roll) * cos(pitch);
-      compZ = GRAVITY * cos(pitch) * cos(roll);
-
-      Serial.print(-Axyz[0] + compX);
-      Serial.print(", ");
-      Serial.print(Axyz[1] - compY);
-      Serial.print(", ");
-      Serial.println(Axyz[2] - compZ);
+      /* Serial.print(velX);
+      Serial.print(" ");
+      Serial.print(velY);
+      Serial.print(" ");
+      Serial.println(velZ); */
+      /* vel = 0;
+      dist = 0; */
 
       /*
       Serial.print("A: ");
@@ -107,14 +173,14 @@ void loop() {
       */
 
       /* Serial.println("Orientation: "); */
-      /* Serial.println(filter.getYaw()); */
+      /* Serial.println(ahrs.getYaw()); */
       /* Serial.print(", ");
-      Serial.print(filter.getPitch());
+      Serial.print(ahrs.getPitch());
       Serial.print(", ");
-      Serial.println(filter.getRoll()); */
+      Serial.println(ahrs.getRoll()); */
 
       /* float *q;
-      q = filter.getQuat();
+      q = ahrs.getQuat();
       Serial.print("Quaternion: ");
       Serial.print(q[0], 4);
       Serial.print(", ");
@@ -140,6 +206,8 @@ float M_Ainv[3][3]{{1.47036, 0.02954, 0.02213},
                    {0.02213, -0.00035, 1.52212}};
 
 void get_IMU(float Axyz[3], float Mxyz[3]) {
+
+  // FIXME: It seems we need to calibrate the gyro: https://github.com/aster94/SensorFusion/issues/7#issuecomment-877002733
   byte i;
   float temp[3];
   Axyz[0] = imu.ax;

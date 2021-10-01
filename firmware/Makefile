@@ -4,6 +4,7 @@ all: .make/installed .make/compiled
 
 .make/installed:
 	arduino-cli core install arduino:mbed_nano
+	arduino-cli lib install --git-url https://github.com/JonHub/Filters
 	arduino-cli lib install \
 		BLE-MIDI \
 		Arduino_LSM9DS1 \
@@ -23,7 +24,7 @@ clean:
 	arduino-cli cache clean
 	rm .make/installed .make/compiled .make/uploaded
 
-upload:
+upload: .make/compiled
 	arduino-cli upload --port $$(ls /dev/tty.usbmodem*) --fqbn arduino:mbed_nano:nano33ble .
 
 connect: .make/uploaded
