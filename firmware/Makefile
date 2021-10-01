@@ -4,10 +4,11 @@ all: .make/installed .make/compiled
 
 .make/installed:
 	arduino-cli core install arduino:mbed_nano
-	arduino-cli lib install --git-url https://github.com/JonHub/Filters
+	arduino-cli lib install \
+		--git-url https://github.com/JonHub/Filters \
+		--git-url https://github.com/sparkfun/SparkFun_LSM9DS1_Arduino_Library
 	arduino-cli lib install \
 		BLE-MIDI \
-		Arduino_LSM9DS1 \
 		SensorFusion
 	touch .make/installed
 
@@ -25,7 +26,7 @@ clean:
 	rm .make/installed .make/compiled .make/uploaded
 
 upload: .make/compiled
-	arduino-cli upload --port $$(ls /dev/tty.usbmodem*) --fqbn arduino:mbed_nano:nano33ble .
+	arduino-cli upload --port $$(arduino-cli board list | sed -n "s/^.*\/dev\(\S*\).*Arduino\sNano\s33\sBLE.*$$/\/dev\1/p") --fqbn arduino:mbed_nano:nano33ble .
 
 connect: .make/uploaded
 	tio -b 115200 $$(ls /dev/tty.usbmodem*)
