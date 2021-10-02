@@ -1,5 +1,8 @@
 .PHONY: clean upload connect
 
+FIND_PORT = arduino-cli board list | sed -n "s/^.*\/dev\(\S*\).*Arduino\sNano\s33\sBLE.*$$/\/dev\1/p"
+FQBN = arduino:mbed_nano:nano33ble
+
 all: .make/installed build
 
 .make/installed:
@@ -13,10 +16,10 @@ all: .make/installed build
 	touch .make/installed
 
 build: .make/installed firmware.ino src/*.cpp src/*.h
-	arduino-cli compile --fqbn arduino:mbed_nano:nano33ble --build-path build .
+	arduino-cli compile --fqbn $(FQBN) --build-path build .
 
 .make/uploaded: build
-	arduino-cli upload --port $$(arduino-cli board list | sed -n "s/^.*\/dev\(\S*\).*Arduino\sNano\s33\sBLE.*$$/\/dev\1/p") --fqbn arduino:mbed_nano:nano33ble --input-dir build
+	arduino-cli upload --port $$($(FIND_PORT)) --fqbn $(FQBN) --input-dir build
 	touch .make/uploaded
 
 clean:
@@ -25,8 +28,8 @@ clean:
 	rm -rf build
 
 upload: build
-	arduino-cli upload --port $$(arduino-cli board list | sed -n "s/^.*\/dev\(\S*\).*Arduino\sNano\s33\sBLE.*$$/\/dev\1/p") --fqbn arduino:mbed_nano:nano33ble --input-dir build
+	arduino-cli upload --port $$($(FIND_PORT)) --fqbn $(FQBN) --input-dir build
 	touch .make/uploaded
 
 connect: .make/uploaded
-	tio -b 115200 $$(arduino-cli board list | sed -n "s/^.*\/dev\(\S*\).*Arduino\sNano\s33\sBLE.*$$/\/dev\1/p")
+	tio -b 115200 $$($(FIND_PORT))
