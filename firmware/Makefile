@@ -13,8 +13,8 @@ all: .make/installed .make/compiled
 	touch .make/installed
 
 # Because arduino-cli puts the build artifacts god knows where
-.make/compiled: .make/installed firmware.ino src/*.cpp include/*.h
-	arduino-cli compile --fqbn arduino:mbed_nano:nano33ble .
+.make/compiled: .make/installed firmware.ino src/*.cpp src/*.h
+	arduino-cli compile --fqbn arduino:mbed_nano:nano33ble --build-path build .
 	touch .make/compiled
 
 .make/uploaded: .make/compiled

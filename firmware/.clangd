@@ -1,0 +1,11 @@
+CompileFlags:
+  Add:
+    - "-xc++"
+    - "-I/home/chris/.arduino15/packages/arduino/tools/arm-none-eabi-gcc/7-2017q4/arm-none-eabi/include"
+
+CompilationDatabase: "build"
+
+# Diagnostics:
+#   ClangTidy:
+#     Add: modernize*
+#     Remove: modernize-use-trailing-return-type
