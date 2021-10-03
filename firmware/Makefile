@@ -1,4 +1,4 @@
-.PHONY: clean upload connect
+.PHONY: calibration-firmware clean connect magneto upload upload-calibration
 
 FIND_PORT = arduino-cli board list | sed -n "s/^.*\/dev\(\S*\).*Arduino\sNano\s33\sBLE.*$$/\/dev\1/p"
 FQBN = arduino:mbed_nano:nano33ble
@@ -33,3 +33,16 @@ upload: build
 
 connect: .make/uploaded
 	tio -b 115200 $$($(FIND_PORT))
+
+calibration/calib_firmware/build: .make/installed calibration/calib_firmware/calib_firmware.ino
+	arduino-cli compile --fqbn $(FQBN) --build-path calibration/calib_firmware/build calibration/calib_firmware
+
+calibration-firmware: calibration/calib_firmware/build
+
+upload-calibration: calibration/calib_firmware/build
+	arduino-cli upload --port $$($(FIND_PORT)) --fqbn $(FQBN) --input-dir calibration/calib_firmware/build
+
+calibration/build/magneto:
+	g++ -o calibration/build/magneto calibration/magneto1_4.c
+
+magneto: calibration/build/magneto
