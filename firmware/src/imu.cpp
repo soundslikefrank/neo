@@ -4,15 +4,22 @@
 
 LSM9DS1 imu;
 float Axyz[3], Mxyz[3], Gxyz[3];
+
 // Calibration data (see support/calibration)
-float A_B[3]{-182.12, -271.40, -119.74};
-float A_Ainv[3][3]{{0.99866, -0.00285, 0.00023},
-                   {-0.00285, 0.98698, 0.01243},
-                   {0.00023, 0.01243, 0.99770}};
-float M_B[3]{-25.45, 2867.99, 693.87};
-float M_Ainv[3][3]{{1.47036, 0.02954, 0.02213},
-                   {0.02954, 1.49626, -0.00035},
-                   {0.02213, -0.00035, 1.52212}};
+// Accelerometer
+float A_B[3]{-209.32, -431.02, -81.96};
+float A_Ainv[3][3]{{0.99720, -0.00122, 0.00208},
+                   {-0.00122, 1.00531, -0.00307},
+                   {0.00208, -0.00307, 0.99510}};
+
+// Magnetometer
+float M_B[3]{-368.72, 2484.30, 872.10};
+float M_Ainv[3][3]{{1.34929, 0.06080, 0.01471},
+                   {0.06080, 1.30756, 0.00921},
+                   {0.01471, 0.00921, 1.34956}};
+
+// Gyroscope
+int G_Offset[3]{65, -13, 21};
 
 void beginIMU() {
     if (imu.begin(0x6B, 0x1E, Wire1) == false) {
@@ -32,8 +39,6 @@ void beginIMU() {
 }
 
 void readIMU() {
-    // FIXME: It seems we need to calibrate the gyro:
-    // https://github.com/aster94/SensorFusion/issues/7#issuecomment-877002733
     byte i;
     float temp[3];
 
@@ -67,9 +72,9 @@ void readIMU() {
         Mxyz[2] = M_Ainv[2][0] * temp[0] + M_Ainv[2][1] * temp[1] +
                   M_Ainv[2][2] * temp[2];
 
-        Gxyz[0] = imu.calcGyro(imu.gx) * DEG_TO_RAD;
-        Gxyz[1] = imu.calcGyro(imu.gy) * DEG_TO_RAD;
-        Gxyz[2] = imu.calcGyro(imu.gz) * DEG_TO_RAD;
+        Gxyz[0] = imu.calcGyro(imu.gx - G_Offset[0]) * DEG_TO_RAD;
+        Gxyz[1] = imu.calcGyro(imu.gy - G_Offset[1]) * DEG_TO_RAD;
+        Gxyz[2] = imu.calcGyro(imu.gz - G_Offset[2]) * DEG_TO_RAD;
 
         Axyz[0] = imu.calcAccel(Axyz[0]) * GRAVITY;
         Axyz[1] = imu.calcAccel(Axyz[1]) * GRAVITY;

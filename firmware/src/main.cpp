@@ -56,16 +56,27 @@ void loop() {
                         Axyz[2],  // Flip Accel Handedness
                         Mxyz[0], Mxyz[1], Mxyz[2], deltat);
 
-    // pitch in radians
+    /* // pitch in radians
     pitch = ahrs.getPitch() * DEG_TO_RAD;
     // roll in radians
     roll = ahrs.getRoll() * DEG_TO_RAD;
     // compensated for gravity
     aX = -Axyz[0] + GRAVITY * sin(pitch);
     aY = Axyz[1] - GRAVITY * sin(roll) * cos(pitch);
-    aZ = Axyz[2] - GRAVITY * cos(pitch) * cos(roll);
+    aZ = Axyz[2] - GRAVITY * cos(pitch) * cos(roll); */
 
-    if (millis() > lastPrint + PRINT_INTERVAL) {
+    // Not compensated
+    /* aX = -Axyz[0];
+    aY = Axyz[1];
+    aZ = Axyz[2]; */
+
+    Serial.print(ahrs.getRollRadians());
+    Serial.print(":");
+    Serial.print(ahrs.getPitchRadians());
+    Serial.print(":");
+    Serial.println(ahrs.getYawRadians());
+
+    /* if (millis() > lastPrint + PRINT_INTERVAL) {
         lastPrint = millis();
 
         Serial.print("aX: ");
@@ -74,5 +85,5 @@ void loop() {
         Serial.println(aY);
         Serial.print("aZ: ");
         Serial.println(aZ);
-    }
+    } */
 }
